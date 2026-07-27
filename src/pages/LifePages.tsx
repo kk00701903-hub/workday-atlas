@@ -73,7 +73,15 @@ export function RestaurantsPage() {
               </p>
             ) : null}
             <div style={{ marginTop: 14 }}>
-              <Link className="btn outline sm" to="/meal-claim">
+              <Link
+                className="btn outline sm"
+                to="/meal-claim"
+                state={{
+                  restaurant: r.name,
+                  amount: r.avgPrice,
+                  useLocalCurrency: r.localCurrency,
+                }}
+              >
                 이 식당으로 청구
               </Link>
             </div>
