@@ -1,40 +1,132 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/Layout'
-import { calendarEvents, formatWon, restaurants } from '../data/mock'
-import { useAtlas } from '../hooks/useAtlas'
-import { bucketGoals } from '../data/mock'
+import { calendarEvents, formatWon, restaurants, bucketGoals } from '../data/mock'
+import { getLeadingRestaurantId, useAtlas } from '../hooks/useAtlas'
 
 export function RestaurantsPage() {
+  const { restaurantVotes, voteRestaurant, selectTodayRestaurant, showToast } = useAtlas()
   const [category, setCategory] = useState('전체')
   const cats = ['전체', '한식', '샐러드', '아시안']
-  const list =
-    category === '전체' ? restaurants : restaurants.filter((r) => r.category === category)
+
+  const list = useMemo(() => {
+    const base =
+      category === '전체' ? restaurants : restaurants.filter((r) => r.category === category)
+    return [...base].sort(
+      (a, b) => (restaurantVotes.votes[b.id] ?? 0) - (restaurantVotes.votes[a.id] ?? 0),
+    )
+  }, [category, restaurantVotes.votes])
+
+  const leadingId = getLeadingRestaurantId(restaurantVotes.votes)
+  const selected = restaurants.find((r) => r.id === restaurantVotes.selectedId) ?? null
+  const leading = restaurants.find((r) => r.id === leadingId) ?? null
+  const totalVotes = Object.values(restaurantVotes.votes).reduce((s, n) => s + n, 0)
+
+  const onVote = (id: string) => {
+    voteRestaurant(id)
+    showToast('투표가 반영되었습니다')
+  }
+
+  const onSelectToday = (id: string) => {
+    selectTodayRestaurant(id)
+    const name = restaurants.find((r) => r.id === id)?.name ?? '선정 식당'
+    showToast(`오늘의 식당으로 ${name}이(가) 선정되었습니다`)
+  }
+
+  const clearSelection = () => {
+    selectTodayRestaurant(null)
+    showToast('선정을 해제했습니다. 다시 투표·선정할 수 있어요.')
+  }
 
   return (
     <>
-      <PageHeader crumb="오늘의 식당 / 추천" title="오늘 뭐 먹을까요?">
-        <Link className="btn" to="/meal-claim">
-          식대 청구로 이어가기
-        </Link>
+      <PageHeader crumb="오늘의 식당 / 투표" title="오늘 뭐 먹을까요?">
+        {selected ? (
+          <Link
+            className="btn"
+            to="/meal-claim"
+            state={{
+              restaurant: selected.name,
+              amount: selected.avgPrice,
+              useLocalCurrency: selected.localCurrency,
+            }}
+          >
+            선정 식당으로 청구
+          </Link>
+        ) : (
+          <button
+            className="btn"
+            type="button"
+            disabled={!leading}
+            onClick={() => leading && onSelectToday(leading.id)}
+          >
+            1등 식당 선정하기
+          </button>
+        )}
       </PageHeader>
 
       <section className="hero" style={{ marginBottom: 20 }}>
         <div>
-          <h2>혼밥·팀밥 모두, 회사가 관리하는 식당 목록에서 고르세요</h2>
-          <p>지역화폐 가능 · 평균가 · 거리 기준으로 빠르게 골라보세요.</p>
+          <h2>추천 식당에 투표하고, 오늘 한 곳을 선정하세요</h2>
+          <p>
+            팀원 투표로 오늘의 점심 장소를 결정합니다. 선정된 식당은 식대 청구에서 바로 불러올 수
+            있어요.
+          </p>
         </div>
         <div className="statline">
           <div>
-            <b>38</b>
-            <span>등록 식당</span>
+            <b>{restaurantVotes.voterCount}</b>
+            <span>참여 인원</span>
           </div>
           <div>
-            <b>18</b>
-            <span>오늘 점심 등록</span>
+            <b>{totalVotes}</b>
+            <span>총 투표 수</span>
+          </div>
+          <div>
+            <b>{selected ? '확정' : '진행중'}</b>
+            <span>선정 상태</span>
           </div>
         </div>
       </section>
+
+      {selected ? (
+        <section className="card claim" style={{ marginBottom: 20 }}>
+          <div className="title">
+            <h3>오늘 선정된 식당</h3>
+            <span className="badge ok">확정</span>
+          </div>
+          <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800 }}>{selected.name}</p>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {selected.distance} · 평균 {formatWon(selected.avgPrice)} · 득표{' '}
+            {restaurantVotes.votes[selected.id] ?? 0}표
+          </p>
+          <div className="topright" style={{ marginTop: 12, justifyContent: 'flex-start' }}>
+            <Link
+              className="btn outline sm"
+              to="/meal-claim"
+              state={{
+                restaurant: selected.name,
+                amount: selected.avgPrice,
+                useLocalCurrency: selected.localCurrency,
+              }}
+            >
+              이 식당으로 식대 청구
+            </Link>
+            <button className="btn ghost sm" type="button" onClick={clearSelection}>
+              선정 해제
+            </button>
+          </div>
+        </section>
+      ) : leading ? (
+        <section className="card" style={{ marginBottom: 20 }}>
+          <div className="title">
+            <h3>현재 1위</h3>
+            <span className="badge">{restaurantVotes.votes[leading.id] ?? 0}표</span>
+          </div>
+          <p style={{ margin: 0, fontWeight: 800 }}>{leading.name}</p>
+          <p className="muted">투표가 끝나면 이 식당을 오늘의 장소로 확정할 수 있어요.</p>
+        </section>
+      ) : null}
 
       <div className="tabs">
         {cats.map((c) => (
@@ -50,43 +142,63 @@ export function RestaurantsPage() {
       </div>
 
       <div className="grid-3">
-        {list.map((r) => (
-          <article className="card" key={r.id}>
-            <div className="title">
-              <h3>{r.name}</h3>
-              <span className="badge">{r.category}</span>
-            </div>
-            <p className="muted" style={{ marginTop: 0 }}>
-              {r.distance} · 평균 {formatWon(r.avgPrice)} · ★ {r.rating}
-            </p>
-            <div className="chips">
-              {r.tags.map((t) => (
-                <span className={`chip${t.includes('지역') ? ' on' : ''}`} key={t}>
-                  {t}
-                </span>
-              ))}
-            </div>
-            {r.lunchers ? (
-              <p className="muted" style={{ marginTop: 12 }}>
-                {r.time} 방문 예정 · {r.lunchers}명
-                {r.seatsLeft ? ` · 동행 ${r.seatsLeft}자리` : ''}
+        {list.map((r) => {
+          const votes = restaurantVotes.votes[r.id] ?? 0
+          const isMine = restaurantVotes.myVoteId === r.id
+          const isSelected = restaurantVotes.selectedId === r.id
+          const isLeading = leadingId === r.id
+          return (
+            <article className="card" key={r.id}>
+              <div className="title">
+                <h3>{r.name}</h3>
+                <span className="badge">{r.category}</span>
+              </div>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {r.distance} · 평균 {formatWon(r.avgPrice)} · ★ {r.rating}
               </p>
-            ) : null}
-            <div style={{ marginTop: 14 }}>
-              <Link
-                className="btn outline sm"
-                to="/meal-claim"
-                state={{
-                  restaurant: r.name,
-                  amount: r.avgPrice,
-                  useLocalCurrency: r.localCurrency,
-                }}
-              >
-                이 식당으로 청구
-              </Link>
-            </div>
-          </article>
-        ))}
+              <div className="chips">
+                {r.tags.map((t) => (
+                  <span className={`chip${t.includes('지역') ? ' on' : ''}`} key={t}>
+                    {t}
+                  </span>
+                ))}
+                {isLeading ? <span className="chip on">1위</span> : null}
+                {isSelected ? <span className="chip on">오늘 선정</span> : null}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <div className="progress" style={{ marginBottom: 10 }}>
+                  <i
+                    style={{
+                      width: `${totalVotes ? Math.round((votes / totalVotes) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="title" style={{ marginBottom: 10 }}>
+                  <b style={{ fontSize: 18 }}>{votes}표</b>
+                  <span className="muted">
+                    {totalVotes ? Math.round((votes / totalVotes) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="topright" style={{ justifyContent: 'flex-start', gap: 8 }}>
+                  <button
+                    className={`btn sm${isMine ? '' : ' outline'}`}
+                    type="button"
+                    onClick={() => onVote(r.id)}
+                  >
+                    {isMine ? '내 투표' : '투표하기'}
+                  </button>
+                  <button
+                    className="btn ghost sm"
+                    type="button"
+                    onClick={() => onSelectToday(r.id)}
+                  >
+                    {isSelected ? '선정됨' : '오늘 선정'}
+                  </button>
+                </div>
+              </div>
+            </article>
+          )
+        })}
       </div>
     </>
   )

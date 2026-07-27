@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { PageHeader } from '../components/Layout'
 import { useAtlas } from '../hooks/useAtlas'
 import {
@@ -11,7 +11,7 @@ import {
 } from '../data/mock'
 
 export function MealClaimPage() {
-  const { addClaim, showToast } = useAtlas()
+  const { addClaim, showToast, recentRestaurants, restaurantVotes } = useAtlas()
   const location = useLocation()
   const preset = location.state as
     | { restaurant?: string; amount?: number; useLocalCurrency?: boolean }
@@ -120,6 +120,26 @@ export function MealClaimPage() {
     void runOcr(file)
   }
 
+  const applyRecentRestaurant = (name: string) => {
+    const found =
+      recentRestaurants.find((r) => r.name === name) ??
+      restaurants.find((r) => r.name === name)
+    if (!found) return
+    setRestaurant(found.name)
+    setAmount(found.avgPrice)
+    setUseLocalCurrency(found.localCurrency)
+    showToast(`${found.name} 정보를 불러왔습니다`)
+  }
+
+  const loadTodaySelected = () => {
+    const selected = restaurants.find((r) => r.id === restaurantVotes.selectedId)
+    if (!selected) {
+      showToast('오늘 선정된 식당이 없습니다. 오늘의 식당에서 먼저 투표·선정해 주세요.')
+      return
+    }
+    applyRecentRestaurant(selected.name)
+  }
+
   const submit = () => {
     if (!restaurant || !amount) {
       showToast('식당명과 금액을 입력해 주세요')
@@ -177,10 +197,39 @@ export function MealClaimPage() {
             </div>
             <p className="muted">
               {entryMode === 'manual'
-                ? '오늘의 식당 정보나 평균 금액을 기준으로 바로 입력하세요.'
+                ? '최근 다녀온 식당이나 오늘 선정된 식당을 불러와 금액을 입력하세요.'
                 : '영수증 사진을 올리면 식당명과 금액을 자동으로 채웁니다.'}
             </p>
-            {entryMode === 'ocr' ? (
+            {entryMode === 'manual' ? (
+              <div className="stack-sm" style={{ marginTop: 12 }}>
+                <div className="topright" style={{ justifyContent: 'flex-start' }}>
+                  <button className="btn outline sm" type="button" onClick={loadTodaySelected}>
+                    오늘 선정 식당 불러오기
+                  </button>
+                  <Link className="btn ghost sm" to="/restaurants">
+                    오늘의 식당 투표로 이동
+                  </Link>
+                </div>
+                <div>
+                  <div className="muted" style={{ marginBottom: 8 }}>
+                    최근 다녀온 식당
+                  </div>
+                  <div className="chips">
+                    {recentRestaurants.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className={`chip selectable${restaurant === r.name ? ' on' : ''}`}
+                        onClick={() => applyRecentRestaurant(r.name)}
+                      >
+                        {r.name}
+                        {restaurantVotes.selectedId === r.id ? ' · 오늘' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div className="stack-sm" style={{ marginTop: 12 }}>
                 <div className="field">
                   <label>영수증 사진 업로드</label>
@@ -211,11 +260,22 @@ export function MealClaimPage() {
                   ) : null}
                 </div>
               </div>
-            ) : null}
+            )}
             <div className="form-grid" style={{ marginTop: 12 }}>
               <div className="field">
                 <label>식당명</label>
-                <select value={restaurant} onChange={(e) => setRestaurant(e.target.value)}>
+                <select
+                  value={restaurant}
+                  onChange={(e) => {
+                    const name = e.target.value
+                    setRestaurant(name)
+                    const found = restaurants.find((r) => r.name === name)
+                    if (found && entryMode === 'manual') {
+                      setAmount(found.avgPrice)
+                      setUseLocalCurrency(found.localCurrency)
+                    }
+                  }}
+                >
                   {restaurants.map((r) => (
                     <option key={r.id} value={r.name}>
                       {r.name}

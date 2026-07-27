@@ -127,11 +127,11 @@ export function HomePage() {
             <div className="title">
               <h3>오늘의 식당</h3>
               <Link className="link" to="/restaurants">
-                둘러보기
+                투표하기
               </Link>
             </div>
             <p className="muted" style={{ margin: '0 0 13px' }}>
-              18명이 점심 계획을 등록했어요
+              추천 식당에 투표해 오늘 한 곳을 선정하세요
             </p>
             {restaurants
               .filter((r) => r.lunchers)
