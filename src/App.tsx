@@ -1,4 +1,4 @@
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { AtlasProvider } from './hooks/useAtlas'
 import { HomePage } from './pages/HomePage'
@@ -21,10 +21,12 @@ import {
 } from './pages/LifePages'
 import './styles/global.css'
 
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
+
 export default function App() {
   return (
     <AtlasProvider>
-      <HashRouter>
+      <BrowserRouter basename={basename}>
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<HomePage />} />
@@ -46,7 +48,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </AtlasProvider>
   )
 }
