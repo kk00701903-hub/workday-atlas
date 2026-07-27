@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import Tesseract from 'tesseract.js'
 import { PageHeader } from '../components/Layout'
 import { useAtlas } from '../hooks/useAtlas'
 import {
@@ -83,6 +82,7 @@ export function MealClaimPage() {
     setOcrLoading(true)
     setOcrPreviewText('')
     try {
+      const Tesseract = await import('tesseract.js')
       const result = await Tesseract.recognize(file, 'kor+eng')
       const ocrText = result?.data?.text ?? ''
       setOcrPreviewText(ocrText.slice(0, 800))
