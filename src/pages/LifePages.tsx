@@ -181,19 +181,13 @@ export function RestaurantsPage() {
                 </div>
                 <div className="topright" style={{ justifyContent: 'flex-start', gap: 8 }}>
                   <button
-                    className={`btn sm${isMine ? '' : ' outline'}`}
+                    className={`btn sm${isMine ? ' outline' : ''}`}
                     type="button"
                     onClick={() => onVote(r.id)}
                   >
-                    {isMine ? '내 투표' : '투표하기'}
+                    {isMine ? '투표 변경' : '투표하기'}
                   </button>
-                  <button
-                    className="btn ghost sm"
-                    type="button"
-                    onClick={() => onSelectToday(r.id)}
-                  >
-                    {isSelected ? '선정됨' : '오늘 선정'}
-                  </button>
+                  {isMine ? <span className="badge">선택됨</span> : null}
                 </div>
               </div>
             </article>
@@ -221,33 +215,35 @@ export function CalendarPage() {
 
       <div className="layout-main-side">
         <section className="card">
-          <div className="calendar-grid">
-            {weekdays.map((d) => (
-              <div className="cal-head" key={d}>
-                {d}
-              </div>
-            ))}
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div className="cal-cell muted" key={`pad-${i}`}>
-                <div className="day">{27 + i}</div>
-              </div>
-            ))}
-            {days.map((day) => {
-              const events = calendarEvents.filter((e) => e.day === day)
-              return (
-                <div className="cal-cell" key={day}>
-                  <div className="day">{day}</div>
-                  {events.map((e) => (
-                    <div
-                      className={`cal-event${e.type === 'accent' ? ' accent' : ''}`}
-                      key={e.title}
-                    >
-                      {e.title}
-                    </div>
-                  ))}
+          <div className="calendar-scroll">
+            <div className="calendar-grid">
+              {weekdays.map((d) => (
+                <div className="cal-head" key={d}>
+                  {d}
                 </div>
-              )
-            })}
+              ))}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div className="cal-cell muted" key={`pad-${i}`}>
+                  <div className="day">{27 + i}</div>
+                </div>
+              ))}
+              {days.map((day) => {
+                const events = calendarEvents.filter((e) => e.day === day)
+                return (
+                  <div className="cal-cell" key={day}>
+                    <div className="day">{day}</div>
+                    {events.map((e) => (
+                      <div
+                        className={`cal-event${e.type === 'accent' ? ' accent' : ''}`}
+                        key={e.title}
+                      >
+                        {e.title}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </section>
 
@@ -332,118 +328,67 @@ export function BucketlistPage() {
 }
 
 export function OpsPage() {
-  const { claims, licenses, showToast } = useAtlas()
-  const [tab, setTab] = useState<'meal' | 'license' | 'budget'>('meal')
+  const { claims, licenses, restaurantVotes, showToast } = useAtlas()
+  const pendingClaims = claims.filter(
+    (c) => c.status === 'pending' || c.status === 'need_info',
+  ).length
+  const renewSoon = licenses.filter((l) => l.daysLeft <= 30).length
+  const todaySelected = restaurants.find((r) => r.id === restaurantVotes.selectedId)
 
   return (
     <>
-      <PageHeader crumb="SYSTEM / 운영 관리" title="운영 관리 콘솔">
+      <PageHeader crumb="SYSTEM / 운영 요약" title="운영 요약">
         <button className="btn" type="button" onClick={() => showToast('운영 리포트를 준비했습니다')}>
           리포트 내보내기
         </button>
       </PageHeader>
 
-      <div className="tabs">
-        {(
-          [
-            ['meal', '식대 운영'],
-            ['license', '라이선스'],
-            ['budget', '예산'],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            className={`tab${tab === key ? ' on' : ''}`}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </button>
-        ))}
+      <section className="kpis">
+        <article className="kpi">
+          <small>식대 승인 대기</small>
+          <b>{pendingClaims}건</b>
+          <span>우선 처리 필요</span>
+        </article>
+        <article className="kpi">
+          <small>30일 이내 갱신</small>
+          <b>{renewSoon}건</b>
+          <span className="warn">라이선스 검토</span>
+        </article>
+        <article className="kpi">
+          <small>오늘 식당</small>
+          <b>{todaySelected ? '확정' : '미정'}</b>
+          <span>{todaySelected?.name ?? '투표 진행 중'}</span>
+        </article>
+        <article className="kpi">
+          <small>활성 라이선스</small>
+          <b>{licenses.length}개</b>
+          <span>관리 대상</span>
+        </article>
+      </section>
+
+      <div className="grid-3">
+        <Link className="card" to="/meal-ops">
+          <div className="title">
+            <h3>식대 운영</h3>
+            <span className="link">바로가기</span>
+          </div>
+          <p className="muted">승인 대기 {pendingClaims}건을 처리합니다.</p>
+        </Link>
+        <Link className="card" to="/licenses">
+          <div className="title">
+            <h3>라이선스</h3>
+            <span className="link">바로가기</span>
+          </div>
+          <p className="muted">갱신 임박 {renewSoon}건을 확인합니다.</p>
+        </Link>
+        <Link className="card" to="/budget">
+          <div className="title">
+            <h3>팀 예산</h3>
+            <span className="link">바로가기</span>
+          </div>
+          <p className="muted">팀별 집행률과 한도를 확인합니다.</p>
+        </Link>
       </div>
-
-      {tab === 'meal' ? (
-        <div className="grid-2">
-          <section className="card">
-            <div className="title">
-              <h3>식대 승인 대기</h3>
-              <Link className="link" to="/meal-ops">
-                운영 화면
-              </Link>
-            </div>
-            <b style={{ fontSize: 28 }}>
-              {claims.filter((c) => c.status === 'pending' || c.status === 'need_info').length}건
-            </b>
-            <p className="muted">보완 요청·한도 초과 건을 우선 처리하세요.</p>
-          </section>
-          <section className="card">
-            <div className="title">
-              <h3>정책 요약</h3>
-            </div>
-            <div className="task">
-              <i className="dot" />
-              <div>
-                <strong>지역화폐 할인 10%</strong>
-                <small>1,000원 단위 반올림</small>
-              </div>
-            </div>
-            <div className="task">
-              <i className="dot" style={{ background: '#2563EB' }} />
-              <div>
-                <strong>팀 식대 월 한도</strong>
-                <small>정보전략팀 1,500,000원</small>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {tab === 'license' ? (
-        <section className="card">
-          <div className="title">
-            <h3>갱신 임박 라이선스</h3>
-            <Link className="link" to="/licenses">
-              라이선스 관리
-            </Link>
-          </div>
-          {licenses
-            .filter((l) => l.daysLeft <= 30)
-            .map((l) => (
-              <div className="task" key={l.id}>
-                <div className="bubble">L</div>
-                <div style={{ flex: 1 }}>
-                  <strong>{l.name}</strong>
-                  <small>
-                    {l.renewDate} · {l.daysLeft}일 남음 · {formatWon(l.monthlyCost)}
-                  </small>
-                </div>
-                <span className="badge warn">검토</span>
-              </div>
-            ))}
-        </section>
-      ) : null}
-
-      {tab === 'budget' ? (
-        <section className="card">
-          <div className="title">
-            <h3>예산 운영 바로가기</h3>
-          </div>
-          <div className="grid-3">
-            <Link className="mini" to="/budget">
-              <b>예산 현황</b>
-              <span>팀별 집행률</span>
-            </Link>
-            <Link className="mini" to="/budget/admin">
-              <b>배정 관리</b>
-              <span>관리자 조정</span>
-            </Link>
-            <Link className="mini" to="/meal-ops">
-              <b>식대 승인</b>
-              <span>대기 큐 처리</span>
-            </Link>
-          </div>
-        </section>
-      ) : null}
     </>
   )
 }

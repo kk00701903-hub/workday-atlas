@@ -1022,25 +1022,99 @@ textarea {
   margin-top: 18px;
 }
 
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.navitem:focus-visible,
+.chip.selectable:focus-visible,
+.tab:focus-visible,
+.check:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+
+.nav-toggle,
+.nav-backdrop {
+  display: none;
+}
+
+.calendar-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-scroll .calendar-grid {
+  min-width: 640px;
+}
+
 @media (max-width: 1100px) {
   .app-shell {
     grid-template-columns: 1fr;
   }
 
+  .nav-toggle {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 60;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--brand-ink);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+  }
+
+  .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    border: 0;
+    background: rgba(23, 32, 51, 0.35);
+    cursor: pointer;
+  }
+
   .side {
-    position: relative;
-    height: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 55;
+    width: min(280px, 86vw);
+    height: 100vh;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    box-shadow: none;
+  }
+
+  .app-shell.nav-open .side {
+    transform: translateX(0);
+    box-shadow: var(--shadow);
+  }
+
+  .page {
+    padding: 72px 16px 28px;
   }
 
   .kpis,
   .grid-3,
+  .grid-2,
+  .form-grid,
   .layout-main-side,
   .layout-claim {
     grid-template-columns: 1fr;
-  }
-
-  .page {
-    padding: 20px;
   }
 
   .hero {
@@ -1050,5 +1124,13 @@ textarea {
 
   .statline {
     flex-wrap: wrap;
+  }
+
+  .top {
+    flex-direction: column;
+  }
+
+  .topright {
+    width: 100%;
   }
 }

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/Layout'
 import { budgets, formatWon } from '../data/mock'
+import { useAtlas } from '../hooks/useAtlas'
 
 export function BudgetPage() {
   const total = budgets.reduce((s, b) => s + b.allocated, 0)
@@ -132,16 +133,28 @@ export function BudgetPage() {
 }
 
 export function BudgetAdminPage() {
+  const { showToast } = useAtlas()
+
   return (
     <>
       <PageHeader crumb="팀 예산 / 예산 관리자" title="예산 배정 관리">
         <Link className="btn ghost" to="/budget">
           현황 홈
         </Link>
-        <button className="btn" type="button">
+        <button
+          className="btn"
+          type="button"
+          onClick={() => showToast('데모: 읽기 전용입니다. 배정 편집은 제공되지 않습니다.')}
+        >
           일괄 저장
         </button>
       </PageHeader>
+
+      <section className="card" style={{ marginBottom: 16 }}>
+        <p className="muted" style={{ margin: 0 }}>
+          현재 화면은 조회 전용 데모입니다. 배정 금액은 표시만 가능하며 저장되지 않습니다.
+        </p>
+      </section>
 
       <section className="card">
         <div className="title">

@@ -3,10 +3,20 @@ import { PageHeader } from '../components/Layout'
 import { useAtlas } from '../hooks/useAtlas'
 import { bucketGoals, restaurants, weeklyWorks } from '../data/mock'
 
+function formatKoreanDate(date: Date) {
+  const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${weekdays[date.getDay()]}`
+}
+
 export function HomePage() {
   const { claims } = useAtlas()
-  const todayWorks = weeklyWorks.filter((w) => w.day.includes('수 12') || w.tag === '검토 요청').slice(0, 2)
+  const today = new Date()
+  const todayLabel = formatKoreanDate(today)
+  const todayWorks = weeklyWorks
+    .filter((w) => w.tag === '검토 요청' || w.status === '진행 중' || w.tag === '마감 임박')
+    .slice(0, 2)
   const pending = claims.filter((c) => c.status === 'need_info' || c.status === 'pending').length
+  const reviewCount = weeklyWorks.filter((w) => w.tag === '검토 요청').length
 
   return (
     <>
@@ -24,8 +34,12 @@ export function HomePage() {
 
       <section className="hero">
         <div>
-          <h2>3월 12일 수요일, 오늘의 리듬</h2>
-          <p>오후 4시까지 검토 요청 1건을 마무리하면 이번 주 목표에 한 걸음 더 가까워져요.</p>
+          <h2>{todayLabel}, 오늘의 리듬</h2>
+          <p>
+            {reviewCount > 0
+              ? `검토 요청 ${reviewCount}건을 마무리하면 이번 주 목표에 한 걸음 더 가까워져요.`
+              : '오늘 마감 업무를 확인하고 리듬을 맞춰보세요.'}
+          </p>
         </div>
         <div className="statline">
           <div>
@@ -35,8 +49,8 @@ export function HomePage() {
             <span>이번 주 완료</span>
           </div>
           <div>
-            <b>2</b>
-            <span>오늘 마감</span>
+            <b>{todayWorks.length}</b>
+            <span>오늘 우선</span>
           </div>
           <div>
             <b>90%</b>
@@ -49,7 +63,7 @@ export function HomePage() {
         <div className="stack">
           <section className="card">
             <div className="title">
-              <h3>오늘 마감 업무</h3>
+              <h3>오늘 우선 업무</h3>
               <Link className="link" to="/weekly">
                 전체 보기
               </Link>
@@ -81,8 +95,8 @@ export function HomePage() {
                 <span>완료한 업무</span>
               </div>
               <div className="mini">
-                <b>2건</b>
-                <span>마감 임박</span>
+                <b>{todayWorks.length}건</b>
+                <span>우선 확인</span>
               </div>
             </div>
           </section>

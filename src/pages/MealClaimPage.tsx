@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/Layout'
 import { useAtlas } from '../hooks/useAtlas'
 import {
@@ -13,6 +13,7 @@ import {
 export function MealClaimPage() {
   const { addClaim, showToast, recentRestaurants, restaurantVotes } = useAtlas()
   const location = useLocation()
+  const navigate = useNavigate()
   const preset = location.state as
     | { restaurant?: string; amount?: number; useLocalCurrency?: boolean }
     | undefined
@@ -27,6 +28,7 @@ export function MealClaimPage() {
   const [receiptFileName, setReceiptFileName] = useState('')
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrPreviewText, setOcrPreviewText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [selected, setSelected] = useState<string[]>([
     '김희찬프로',
     '방민식프로',
@@ -59,12 +61,8 @@ export function MealClaimPage() {
     s.replace(/[\s·,._\-()]/g, '').toLowerCase()
 
   const extractWonAmount = (text: string): number | null => {
-    const matches = Array.from(
-      text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g),
-    )
+    const matches = Array.from(text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g))
     if (!matches.length) return null
-
-    // 영수증 총액이 보통 마지막으로 등장하므로 마지막 매치를 우선 사용합니다.
     const last = matches[matches.length - 1]?.[1]
     if (!last) return null
     const value = Number(last.replace(/,/g, ''))
@@ -73,9 +71,7 @@ export function MealClaimPage() {
 
   const findRestaurantFromText = (text: string) => {
     const normText = normalizeForSearch(text)
-    return restaurants.find((r) =>
-      normText.includes(normalizeForSearch(r.name)),
-    )
+    return restaurants.find((r) => normText.includes(normalizeForSearch(r.name)))
   }
 
   const runOcr = async (file: File) => {
@@ -89,8 +85,8 @@ export function MealClaimPage() {
 
       const foundRestaurant = findRestaurantFromText(ocrText)
       const extractedAmount = extractWonAmount(ocrText)
-
       const notes: string[] = []
+
       if (foundRestaurant) {
         setRestaurant(foundRestaurant.name)
         setUseLocalCurrency(foundRestaurant.localCurrency)
@@ -105,7 +101,9 @@ export function MealClaimPage() {
         notes.push('금액을 찾지 못했습니다. 금액은 직접 입력해 주세요.')
       }
 
-      showToast(notes.length ? `OCR 인식 완료. ${notes.join(' ')}` : '영수증 OCR 인식이 완료되었습니다')
+      showToast(
+        notes.length ? `OCR 인식 완료. ${notes.join(' ')}` : '영수증 OCR 인식이 완료되었습니다',
+      )
     } catch {
       setAmount(0)
       showToast('OCR 인식에 실패했습니다. 다른 사진으로 다시 시도해 주세요.')
@@ -132,19 +130,33 @@ export function MealClaimPage() {
   }
 
   const loadTodaySelected = () => {
-    const selected = restaurants.find((r) => r.id === restaurantVotes.selectedId)
-    if (!selected) {
+    const selectedRestaurant = restaurants.find((r) => r.id === restaurantVotes.selectedId)
+    if (!selectedRestaurant) {
       showToast('오늘 선정된 식당이 없습니다. 오늘의 식당에서 먼저 투표·선정해 주세요.')
       return
     }
-    applyRecentRestaurant(selected.name)
+    applyRecentRestaurant(selectedRestaurant.name)
+  }
+
+  const resetForm = () => {
+    setEntryMode('manual')
+    setRestaurant(restaurants[0].name)
+    setAmount(restaurants[0].avgPrice)
+    setReason('팀 점심 식사')
+    setLinkedWork('')
+    setUseLocalCurrency(restaurants[0].localCurrency)
+    setReceiptFileName('')
+    setOcrPreviewText('')
+    setSelected([currentUser.name])
   }
 
   const submit = () => {
+    if (submitting) return
     if (!restaurant || !amount) {
       showToast('식당명과 금액을 입력해 주세요')
       return
     }
+    setSubmitting(true)
     addClaim({
       restaurant,
       amount,
@@ -160,6 +172,9 @@ export function MealClaimPage() {
       status: 'pending',
     })
     showToast('식대 청구가 제출되었습니다')
+    resetForm()
+    navigate('/meal-status')
+    setSubmitting(false)
   }
 
   return (
@@ -308,9 +323,7 @@ export function MealClaimPage() {
             <div className="title">
               <h3>3. 참석자</h3>
             </div>
-            <p className="muted">
-              참석자 {selected.length || 1}명 · 균등 분할 기준
-            </p>
+            <p className="muted">참석자 {selected.length || 1}명 · 균등 분할 기준</p>
             <div className="chips">
               {claimMembers.map((m) => (
                 <button
@@ -332,10 +345,14 @@ export function MealClaimPage() {
             <div
               className={`check${useLocalCurrency ? '' : ' off'}`}
               onClick={() => setUseLocalCurrency((v) => !v)}
-              role="button"
+              role="checkbox"
+              aria-checked={useLocalCurrency}
               tabIndex={0}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') setUseLocalCurrency((v) => !v)
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setUseLocalCurrency((v) => !v)
+                }
               }}
             >
               <div className="box">✓</div>
@@ -355,16 +372,18 @@ export function MealClaimPage() {
           <h2>청구 금액 미리보기</h2>
           <p>정산 정책과 계산 근거를 제출 전에 확인하세요.</p>
           <div className="policy">
-            {useLocalCurrency ? '지역화폐 10% · ' : ''}1,000원 단위 반올림
+            {useLocalCurrency ? '지역화폐 10% · ' : '지역화폐 미적용 · '}1,000원 단위 반올림
           </div>
           <div className="line">
             <span>영수증 금액</span>
             <b>{formatWon(amount || 0)}</b>
           </div>
-          <div className="line">
-            <span>지역화폐 할인 (10%)</span>
-            <b>- {formatWon(calc.discount)}</b>
-          </div>
+          {useLocalCurrency ? (
+            <div className="line">
+              <span>지역화폐 할인 (10%)</span>
+              <b>- {formatWon(calc.discount)}</b>
+            </div>
+          ) : null}
           <div className="line">
             <span>계산 금액</span>
             <b>{formatWon(calc.calculated)}</b>
@@ -381,8 +400,14 @@ export function MealClaimPage() {
             할인율과 반올림 규칙은 제출 시점의 회사 정책으로 기록됩니다. 승인 후 지급 예정일을
             안내해 드려요.
           </div>
-          <button className="btn" style={{ width: '100%' }} type="button" onClick={submit}>
-            청구 제출하기
+          <button
+            className="btn"
+            style={{ width: '100%' }}
+            type="button"
+            onClick={submit}
+            disabled={submitting}
+          >
+            {submitting ? '제출 중...' : '청구 제출하기'}
           </button>
         </aside>
       </div>

@@ -23,7 +23,7 @@ const groups = [
     label: 'SYSTEM',
     items: [
       { to: '/licenses', label: '라이선스', icon: 'license' },
-      { to: '/ops', label: '운영 관리', icon: 'ops' },
+      { to: '/ops', label: '운영 요약', icon: 'ops' },
     ],
   },
 ]
@@ -101,7 +101,7 @@ function Icon({ name }: { name: string }) {
   }
 }
 
-export function SideNav() {
+export function SideNav({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="side">
       <div className="brand">
@@ -121,6 +121,7 @@ export function SideNav() {
                 to={item.to}
                 end={item.to === '/'}
                 className={({ isActive }) => `navitem${isActive ? ' on' : ''}`}
+                onClick={() => onNavigate?.()}
               >
                 <Icon name={item.icon} />
                 {item.label}

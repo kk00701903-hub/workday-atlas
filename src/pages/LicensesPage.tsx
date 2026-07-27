@@ -180,7 +180,7 @@ export function LicensesPage() {
             </div>
             <div className="alert" style={{ marginBottom: 10 }}>
               <b>Claude Team 미사용 좌석 2석</b>
-              45일 이상 사용 기록이 없어 23석 감석을 제안합니다.
+              45일 이상 사용 기록이 없어 2석 감석을 제안합니다.
             </div>
             <div className="alert" style={{ marginBottom: 10 }}>
               <b>Figma 대기 요청 2건</b>
