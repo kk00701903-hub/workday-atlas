@@ -78,13 +78,21 @@ export interface Restaurant {
   seatsLeft?: number
 }
 
+export type BucketStatus = 'active' | 'done' | 'planned'
+
 export interface BucketGoal {
   id: string
   title: string
   description: string
   progress: number
   target: string
-  status: 'active' | 'done' | 'planned'
+  status: BucketStatus
+}
+
+export const bucketStatusLabel: Record<BucketStatus, string> = {
+  planned: '예정',
+  active: '진행',
+  done: '완료',
 }
 
 export const currentUser: Member = {

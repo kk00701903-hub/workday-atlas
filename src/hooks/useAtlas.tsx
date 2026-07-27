@@ -1,13 +1,33 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import {
+  bucketGoals as seedBucketGoals,
   initialClaims,
   licenses as seedLicenses,
   restaurants,
+  type BucketGoal,
   type MealClaim,
   type License,
   type ClaimStatus,
   type Restaurant,
 } from '../data/mock'
+
+const BUCKET_STORAGE_KEY = 'atlas-bucket-goals'
+
+function loadBucketGoals(): BucketGoal[] {
+  try {
+    const raw = localStorage.getItem(BUCKET_STORAGE_KEY)
+    if (!raw) return seedBucketGoals
+    const parsed = JSON.parse(raw) as BucketGoal[]
+    if (!Array.isArray(parsed) || parsed.length === 0) return seedBucketGoals
+    return parsed
+  } catch {
+    return seedBucketGoals
+  }
+}
+
+function persistBucketGoals(goals: BucketGoal[]) {
+  localStorage.setItem(BUCKET_STORAGE_KEY, JSON.stringify(goals))
+}
 
 export interface RestaurantVoteState {
   votes: Record<string, number>
@@ -19,10 +39,12 @@ export interface RestaurantVoteState {
 interface AtlasStore {
   claims: MealClaim[]
   licenses: License[]
+  bucketGoals: BucketGoal[]
   restaurantVotes: RestaurantVoteState
   recentRestaurants: Restaurant[]
   addClaim: (claim: Omit<MealClaim, 'id' | 'status'> & { status?: ClaimStatus }) => void
   updateClaimStatus: (id: string, status: ClaimStatus) => void
+  saveBucketGoals: (goals: BucketGoal[]) => void
   addLicense: (license: Omit<License, 'id'>) => void
   voteRestaurant: (restaurantId: string) => void
   selectTodayRestaurant: (restaurantId: string | null) => void
@@ -73,6 +95,7 @@ function restaurantsFromClaims(claims: MealClaim[]): Restaurant[] {
 export function AtlasProvider({ children }: { children: ReactNode }) {
   const [claims, setClaims] = useState(initialClaims)
   const [licenses, setLicenses] = useState(seedLicenses)
+  const [bucketGoals, setBucketGoals] = useState(loadBucketGoals)
   const [restaurantVotes, setRestaurantVotes] = useState(initialVotes)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -105,6 +128,7 @@ export function AtlasProvider({ children }: { children: ReactNode }) {
     () => ({
       claims,
       licenses,
+      bucketGoals,
       restaurantVotes,
       recentRestaurants,
       toast,
@@ -122,6 +146,10 @@ export function AtlasProvider({ children }: { children: ReactNode }) {
       },
       updateClaimStatus: (id, status) => {
         setClaims((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)))
+      },
+      saveBucketGoals: (goals) => {
+        setBucketGoals(goals)
+        persistBucketGoals(goals)
       },
       addLicense: (license) => {
         setLicenses((prev) => [{ ...license, id: `l${Date.now()}` }, ...prev])
@@ -149,7 +177,7 @@ export function AtlasProvider({ children }: { children: ReactNode }) {
         }))
       },
     }),
-    [claims, licenses, restaurantVotes, recentRestaurants, toast],
+    [claims, licenses, bucketGoals, restaurantVotes, recentRestaurants, toast],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

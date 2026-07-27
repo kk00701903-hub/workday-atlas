@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/Layout'
 import { useAtlas } from '../hooks/useAtlas'
-import { bucketGoals, restaurants, weeklyWorks } from '../data/mock'
+import { restaurants, weeklyWorks } from '../data/mock'
 
 function formatKoreanDate(date: Date) {
   const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
@@ -9,12 +9,14 @@ function formatKoreanDate(date: Date) {
 }
 
 export function HomePage() {
-  const { claims } = useAtlas()
+  const { claims, bucketGoals } = useAtlas()
   const today = new Date()
   const todayLabel = formatKoreanDate(today)
   const todayWorks = weeklyWorks
     .filter((w) => w.tag === '검토 요청' || w.status === '진행 중' || w.tag === '마감 임박')
     .slice(0, 2)
+  const highlightGoal =
+    bucketGoals.find((g) => g.status === 'active') ?? bucketGoals[0]
   const pending = claims.filter((c) => c.status === 'need_info' || c.status === 'pending').length
   const reviewCount = weeklyWorks.filter((w) => w.tag === '검토 요청').length
 
@@ -169,12 +171,18 @@ export function HomePage() {
                 보기
               </Link>
             </div>
-            <h4 style={{ margin: 0, fontSize: 14 }}>{bucketGoals[0].title}</h4>
-            <p className="muted">{bucketGoals[0].description}</p>
-            <div className="progress accent">
-              <i style={{ width: `${bucketGoals[0].progress}%` }} />
-            </div>
-            <b style={{ fontSize: 12, color: '#F97316' }}>{bucketGoals[0].progress}% 진행</b>
+            {highlightGoal ? (
+              <>
+                <h4 style={{ margin: 0, fontSize: 14 }}>{highlightGoal.title}</h4>
+                <p className="muted">{highlightGoal.description}</p>
+                <div className="progress accent">
+                  <i style={{ width: `${highlightGoal.progress}%` }} />
+                </div>
+                <b style={{ fontSize: 12, color: '#F97316' }}>{highlightGoal.progress}% 진행</b>
+              </>
+            ) : (
+              <p className="muted">등록된 버킷리스트가 없습니다.</p>
+            )}
           </section>
         </div>
       </div>

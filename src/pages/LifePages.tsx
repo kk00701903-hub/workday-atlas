@@ -1,7 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/Layout'
-import { calendarEvents, formatWon, restaurants, bucketGoals } from '../data/mock'
+import {
+  bucketStatusLabel,
+  calendarEvents,
+  formatWon,
+  restaurants,
+  type BucketGoal,
+  type BucketStatus,
+} from '../data/mock'
 import { getLeadingRestaurantId, useAtlas } from '../hooks/useAtlas'
 
 export function RestaurantsPage() {
@@ -273,51 +280,149 @@ export function CalendarPage() {
 }
 
 export function BucketlistPage() {
+  const { bucketGoals, saveBucketGoals, showToast } = useAtlas()
+  const [drafts, setDrafts] = useState<BucketGoal[]>(() =>
+    bucketGoals.map((g) => ({ ...g })),
+  )
+
+  useEffect(() => {
+    setDrafts(bucketGoals.map((g) => ({ ...g })))
+  }, [bucketGoals])
+
+  const dirty = useMemo(
+    () =>
+      drafts.some((d) => {
+        const saved = bucketGoals.find((g) => g.id === d.id)
+        return !saved || saved.status !== d.status || saved.progress !== d.progress
+      }),
+    [drafts, bucketGoals],
+  )
+
+  const stats = useMemo(() => {
+    const active = drafts.filter((g) => g.status === 'active').length
+    const done = drafts.filter((g) => g.status === 'done').length
+    const avg =
+      drafts.length === 0
+        ? 0
+        : Math.round(drafts.reduce((sum, g) => sum + g.progress, 0) / drafts.length)
+    const focus = drafts.find((g) => g.status === 'active') ?? drafts[0]
+    return { active, done, avg, focus }
+  }, [drafts])
+
+  const updateDraft = (id: string, patch: Partial<Pick<BucketGoal, 'status' | 'progress'>>) => {
+    setDrafts((prev) =>
+      prev.map((g) => {
+        if (g.id !== id) return g
+        const next = { ...g, ...patch }
+        if (patch.status === 'done' && patch.progress == null) next.progress = 100
+        if (patch.progress != null) {
+          next.progress = Math.min(100, Math.max(0, Math.round(patch.progress)))
+        }
+        return next
+      }),
+    )
+  }
+
+  const handleSave = () => {
+    saveBucketGoals(drafts.map((g) => ({ ...g })))
+    showToast('버킷리스트 상태가 저장되었습니다')
+  }
+
+  const handleReset = () => {
+    setDrafts(bucketGoals.map((g) => ({ ...g })))
+    showToast('변경 사항을 되돌렸습니다')
+  }
+
   return (
     <>
       <PageHeader crumb="성장 목표 / 2025" title="2025 버킷리스트">
-        <button className="btn" type="button">
-          목표 추가
+        <button className="btn outline" type="button" disabled={!dirty} onClick={handleReset}>
+          되돌리기
+        </button>
+        <button className="btn" type="button" disabled={!dirty} onClick={handleSave}>
+          저장
         </button>
       </PageHeader>
 
       <section className="kpis">
         <article className="kpi">
-          <small>팀 목표</small>
-          <b>6</b>
-          <span>활성 목표 3</span>
+          <small>전체 목표</small>
+          <b>{drafts.length}</b>
+          <span>활성 {stats.active} · 완료 {stats.done}</span>
         </article>
         <article className="kpi">
-          <small>개인 목표</small>
-          <b>5</b>
-          <span>완료율 67%</span>
+          <small>완료율</small>
+          <b>
+            {drafts.length === 0 ? 0 : Math.round((stats.done / drafts.length) * 100)}%
+          </b>
+          <span>
+            {stats.done}/{drafts.length} 완료
+          </span>
         </article>
         <article className="kpi">
-          <small>마일스톤</small>
-          <b>8 / 12</b>
-          <span>남은 기간 294일</span>
+          <small>평균 진행</small>
+          <b>{stats.avg}%</b>
+          <span>상태 변경 후 저장하세요</span>
         </article>
         <article className="kpi">
-          <small>올해 진행</small>
-          <b>60%</b>
-          <span>발표 세션 준비 중</span>
+          <small>포커스</small>
+          <b style={{ fontSize: 18 }}>{stats.focus?.title ?? '-'}</b>
+          <span>{stats.focus ? `${stats.focus.progress}% 진행` : '목표 없음'}</span>
         </article>
       </section>
 
       <div className="grid-2">
-        {bucketGoals.map((g) => (
+        {drafts.map((g) => (
           <article className="card" key={g.id}>
             <div className="title">
               <h3>{g.title}</h3>
               <span className={g.status === 'done' ? 'badge ok' : 'badge'}>
-                {g.status === 'done' ? '완료' : g.status === 'planned' ? '예정' : '진행'}
+                {bucketStatusLabel[g.status]}
               </span>
             </div>
             <p className="muted">{g.description}</p>
             <div className="progress accent">
               <i style={{ width: `${g.progress}%` }} />
             </div>
-            <b style={{ fontSize: 12, color: '#F97316' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 12,
+                marginTop: 14,
+              }}
+            >
+              <div className="field">
+                <label htmlFor={`bucket-status-${g.id}`}>상태</label>
+                <select
+                  id={`bucket-status-${g.id}`}
+                  value={g.status}
+                  onChange={(e) =>
+                    updateDraft(g.id, { status: e.target.value as BucketStatus })
+                  }
+                >
+                  {(Object.keys(bucketStatusLabel) as BucketStatus[]).map((key) => (
+                    <option key={key} value={key}>
+                      {bucketStatusLabel[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor={`bucket-progress-${g.id}`}>진행률 (%)</label>
+                <input
+                  id={`bucket-progress-${g.id}`}
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={g.progress}
+                  onChange={(e) =>
+                    updateDraft(g.id, { progress: Number(e.target.value) || 0 })
+                  }
+                />
+              </div>
+            </div>
+            <b style={{ display: 'block', marginTop: 10, fontSize: 12, color: '#F97316' }}>
               {g.progress}% · {g.target}
             </b>
           </article>
